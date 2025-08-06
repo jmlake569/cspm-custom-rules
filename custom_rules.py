@@ -129,12 +129,13 @@ class ConformityCustomRulesManager:
             headers = self.headers.copy()
             headers["Content-Type"] = "application/json"
             
-            # Convert to JSON string for debugging
+            # Convert to JSON string and send as data instead of json parameter
             json_data = json.dumps(rule_data, indent=2)
             print(f"Request headers: {headers}")
             print(f"Request body: {json_data}")
             
-            response = requests.post(url, headers=headers, json=rule_data)
+            # Send as data string instead of json parameter
+            response = requests.post(url, headers=headers, data=json_data)
             
             print(f"Response Status: {response.status_code}")
             
