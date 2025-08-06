@@ -124,10 +124,17 @@ class ConformityCustomRulesManager:
         
         try:
             print(f"Creating custom rule at: {url}")
-            # Use json parameter to let requests handle the JSON properly
-            print(f"Request headers: {self.headers}")
-            print(f"Request body: {json.dumps(rule_data, indent=2)}")
-            response = requests.post(url, headers=self.headers, json=rule_data)
+            
+            # Add Content-Type header for JSON
+            headers = self.headers.copy()
+            headers["Content-Type"] = "application/json"
+            
+            # Convert to JSON string for debugging
+            json_data = json.dumps(rule_data, indent=2)
+            print(f"Request headers: {headers}")
+            print(f"Request body: {json_data}")
+            
+            response = requests.post(url, headers=headers, json=rule_data)
             
             print(f"Response Status: {response.status_code}")
             
