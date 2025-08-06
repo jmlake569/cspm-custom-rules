@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import json
+import os
 import requests
 import sys
 from datetime import datetime, timezone
@@ -34,7 +35,6 @@ class ConformityCustomRulesManager:
         self.url_base = "https://api.xdr.trendmicro.com"
         self.url_path = "/beta/c1/conformity/custom-rules"
         self.headers = {
-            "Content-Type": "application/json",
             "Authorization": "Bearer " + self.api_key
         }
 
@@ -124,6 +124,9 @@ class ConformityCustomRulesManager:
         
         try:
             print(f"Creating custom rule at: {url}")
+            # Use json parameter to let requests handle the JSON properly
+            print(f"Request headers: {self.headers}")
+            print(f"Request body: {json.dumps(rule_data, indent=2)}")
             response = requests.post(url, headers=self.headers, json=rule_data)
             
             print(f"Response Status: {response.status_code}")
@@ -229,7 +232,7 @@ def create_sample_rule() -> Dict[str, Any]:
         "name": "IAM Access Key Rotation - 180 Days",
         "slug": "iam-access-key-rotation-180-days",
         "description": "Ensure IAM access keys are rotated every 180 days to maintain security best practices",
-        "remediationNotes": "If this rule is violated, please follow these steps:\n1. Go to AWS IAM console\n2. Navigate to Users and select the affected user\n3. In the Security credentials tab, create a new access key\n4. Update your applications/services to use the new access key\n5. Test that everything works with the new key\n6. Delete the old access key once confirmed working",
+        "remediationNotes": "If this rule is violated, please follow these steps: 1. Go to AWS IAM console 2. Navigate to Users and select the affected user 3. In the Security credentials tab, create a new access key 4. Update your applications/services to use the new access key 5. Test that everything works with the new key 6. Delete the old access key once confirmed working",
         "service": "IAM",
         "resourceType": "iam-user",
         "categories": ["security"],
@@ -243,32 +246,29 @@ def create_sample_rule() -> Dict[str, Any]:
                 "required": True
             },
             {
-                "name": "accessKeys",
-                "path": "data.AccessKeyMetadata",
+                "name": "accessKeyAge",
+                "path": "data.AccessKeyMetadata[0].CreateDate",
+                "required": True
+            },
+            {
+                "name": "accessKeyStatus",
+                "path": "data.AccessKeyMetadata[0].Status",
                 "required": True
             }
         ],
         "rules": [
             {
                 "conditions": {
-                    "any": [
+                    "all": [
                         {
-                            "fact": "accessKeys",
-                            "operator": "arrayContains",
-                            "value": {
-                                "all": [
-                                    {
-                                        "fact": "Status",
-                                        "operator": "equal",
-                                        "value": "Active"
-                                    },
-                                    {
-                                        "fact": "CreateDate",
-                                        "operator": "daysSince",
-                                        "value": 180
-                                    }
-                                ]
-                            }
+                            "fact": "accessKeyStatus",
+                            "operator": "equal",
+                            "value": "Active"
+                        },
+                        {
+                            "fact": "accessKeyAge",
+                            "operator": "daysSince",
+                            "value": 180
                         }
                     ]
                 },
@@ -287,27 +287,42 @@ def main():
 Examples:
   List all custom rules:
     python custom_rules.py --api-key YOUR_KEY --list
+    # Or with environment variable:
+    export TMV1_TOKEN="your-token"
+    python custom_rules.py --list
 
   Get specific rule details:
     python custom_rules.py --api-key YOUR_KEY --get RULE_ID
+    # Or with environment variable:
+    python custom_rules.py --get RULE_ID
 
   Create rule from file:
     python custom_rules.py --api-key YOUR_KEY --create --rule-file rule.json
+    # Or with environment variable:
+    python custom_rules.py --create --rule-file rule.json
 
   Create sample IAM key rotation rule (180 days):
     python custom_rules.py --api-key YOUR_KEY --create --sample
+    # Or with environment variable:
+    python custom_rules.py --create --sample
 
   Delete a rule:
     python custom_rules.py --api-key YOUR_KEY --delete RULE_ID
+    # Or with environment variable:
+    python custom_rules.py --delete RULE_ID
 
 Security Note:
   Consider using environment variables for API keys:
+  export TMV1_TOKEN="your-api-key"
+  python custom_rules.py --list
+  
+  Or use VISION_ONE_API_KEY:
   export VISION_ONE_API_KEY="your-api-key"
-  python custom_rules.py --api-key "$VISION_ONE_API_KEY" --list
+  python custom_rules.py --list
         """
     )
     
-    parser.add_argument("--api-key", required=True, help="Trend Vision One API key (Bearer token)")
+    parser.add_argument("--api-key", help="Trend Vision One API key (Bearer token). Can also be set via TMV1_TOKEN or VISION_ONE_API_KEY environment variables.")
     
     # Action arguments
     action_group = parser.add_mutually_exclusive_group(required=True)
@@ -322,8 +337,17 @@ Security Note:
     
     args = parser.parse_args()
     
+    # Get API key from command line argument or environment variables
+    api_key = args.api_key
+    if not api_key:
+        # Try environment variables in order of preference
+        api_key = os.environ.get('TMV1_TOKEN') or os.environ.get('VISION_ONE_API_KEY')
+        if not api_key:
+            print("❌ API key is required. Provide it via --api-key argument or set TMV1_TOKEN or VISION_ONE_API_KEY environment variable.")
+            sys.exit(1)
+    
     # Initialize manager
-    manager = ConformityCustomRulesManager(args.api_key)
+    manager = ConformityCustomRulesManager(api_key)
     
     try:
         if args.list:
@@ -349,6 +373,7 @@ Security Note:
                     with open(args.rule_file, 'r') as f:
                         rule_data = json.load(f)
                     print(f"📝 Creating custom rule from {args.rule_file}...")
+                    print(f"📋 Rule data preview: {json.dumps(rule_data, indent=2)[:500]}...")
                 except FileNotFoundError:
                     print(f"❌ Rule file not found: {args.rule_file}")
                     sys.exit(1)

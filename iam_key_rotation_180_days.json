@@ -2,10 +2,12 @@
   "name": "IAM Access Key Rotation - 180 Days",
   "slug": "iam-access-key-rotation-180-days",
   "description": "Ensure IAM access keys are rotated every 180 days to maintain security best practices",
-  "remediationNotes": "If this rule is violated, please follow these steps:\n1. Go to AWS IAM console\n2. Navigate to Users and select the affected user\n3. In the Security credentials tab, create a new access key\n4. Update your applications/services to use the new access key\n5. Test that everything works with the new key\n6. Delete the old access key once confirmed working",
+  "remediationNotes": "If this rule is violated, please follow these steps: 1. Go to AWS IAM console 2. Navigate to Users and select the affected user 3. In the Security credentials tab, create a new access key 4. Update your applications/services to use the new access key 5. Test that everything works with the new key 6. Delete the old access key once confirmed working",
   "service": "IAM",
   "resourceType": "iam-user",
-  "categories": ["security"],
+  "categories": [
+    "security"
+  ],
   "severity": "HIGH",
   "provider": "aws",
   "enabled": true,
@@ -16,32 +18,29 @@
       "required": true
     },
     {
-      "name": "accessKeys",
-      "path": "data.AccessKeyMetadata",
+      "name": "accessKeyAge",
+      "path": "data.AccessKeyMetadata[0].CreateDate",
+      "required": true
+    },
+    {
+      "name": "accessKeyStatus",
+      "path": "data.AccessKeyMetadata[0].Status",
       "required": true
     }
   ],
   "rules": [
     {
       "conditions": {
-        "any": [
+        "all": [
           {
-            "fact": "accessKeys",
-            "operator": "arrayContains",
-            "value": {
-              "all": [
-                {
-                  "fact": "Status",
-                  "operator": "equal",
-                  "value": "Active"
-                },
-                {
-                  "fact": "CreateDate",
-                  "operator": "daysSince",
-                  "value": 180
-                }
-              ]
-            }
+            "fact": "accessKeyStatus",
+            "operator": "equal",
+            "value": "Active"
+          },
+          {
+            "fact": "accessKeyAge",
+            "operator": "daysSince",
+            "value": 180
           }
         ]
       },

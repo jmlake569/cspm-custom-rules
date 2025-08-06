@@ -1,0 +1,37 @@
+{
+  "name": "S3 Bucket Name Length Check",
+  "slug": "s3-bucket-name-length-check",
+  "description": "This custom rule ensures S3 bucket names are not longer than 32 characters to follow AWS best practices",
+  "remediationNotes": "If this rule is violated, please follow these steps: 1. Go to AWS S3 console 2. Navigate to the bucket with the long name 3. Consider renaming the bucket to a shorter name (max 32 characters) 4. Update any references to the old bucket name in your applications 5. Note: Renaming S3 buckets requires creating a new bucket and copying data",
+  "service": "S3",
+  "resourceType": "s3-bucket",
+  "categories": [
+    "security"
+  ],
+  "severity": "MEDIUM",
+  "provider": "aws",
+  "enabled": true,
+  "attributes": [
+    {
+      "name": "bucketName",
+      "path": "data.Name",
+      "required": true
+    }
+  ],
+  "rules": [
+    {
+      "conditions": {
+        "any": [
+          {
+            "fact": "bucketName",
+            "operator": "length",
+            "value": 32
+          }
+        ]
+      },
+      "event": {
+        "type": "S3 bucket name is longer than 32 characters"
+      }
+    }
+  ]
+} 
