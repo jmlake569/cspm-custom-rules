@@ -1,0 +1,52 @@
+{
+  "name": "IAM Access Key Rotation - 180 Days",
+  "slug": "iam-access-key-rotation-180-days",
+  "description": "Ensure IAM access keys are rotated every 180 days to maintain security best practices",
+  "remediationNotes": "If this rule is violated, please follow these steps: 1. Go to AWS IAM console 2. Navigate to Users and select the affected user 3. In the Security credentials tab, create a new access key 4. Update your applications/services to use the new access key 5. Test that everything works with the new key 6. Delete the old access key once confirmed working",
+  "service": "IAM",
+  "resourceType": "iam-user",
+  "categories": [
+    "security"
+  ],
+  "severity": "HIGH",
+  "provider": "aws",
+  "enabled": true,
+  "attributes": [
+    {
+      "name": "userName",
+      "path": "data.UserName",
+      "required": true
+    },
+    {
+      "name": "accessKeyAge",
+      "path": "data.AccessKeyMetadata[0].CreateDate",
+      "required": true
+    },
+    {
+      "name": "accessKeyStatus",
+      "path": "data.AccessKeyMetadata[0].Status",
+      "required": true
+    }
+  ],
+  "rules": [
+    {
+      "conditions": {
+        "all": [
+          {
+            "fact": "accessKeyStatus",
+            "operator": "equal",
+            "value": "Active"
+          },
+                      {
+              "fact": "accessKeyAge",
+              "operator": "greaterThan",
+              "value": 180
+            }
+        ]
+      },
+      "event": {
+        "type": "IAM access key is older than 180 days"
+      }
+    }
+  ]
+} 
