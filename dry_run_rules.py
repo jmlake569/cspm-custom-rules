@@ -57,7 +57,6 @@ class ConformityDryRunTester:
             
             if response.status_code == 200:
                 data = response.json()
-                print(f"Raw response: {json.dumps(data, indent=2)}")
                 
                 # Try different possible data structures
                 accounts = data.get('data', [])
@@ -67,6 +66,10 @@ class ConformityDryRunTester:
                     accounts = data.get('items', [])
                 if not accounts:
                     accounts = data if isinstance(data, list) else []
+                
+                if accounts:
+                    print(f"✅ Found {len(accounts)} accounts")
+                    print(f"Sample account data: {json.dumps(accounts[0], indent=2)}")
                 
                 return accounts
             elif response.status_code == 401:
@@ -243,18 +246,34 @@ def format_accounts_table(accounts: List[Dict[str, Any]]) -> None:
         print("No accounts found.")
         return
     
-    print(f"\n{'Account ID':<15} {'Name':<30} {'Type':<15} {'Status':<15} {'Provider':<10}")
-    print("-" * 85)
+    print(f"\n{'Account ID':<40} {'Name':<30} {'Type':<15} {'Status':<15} {'Provider':<10}")
+    print("-" * 110)
     
     for account in accounts:
-        account_id = account.get('id', 'N/A')[:13]
-        attributes = account.get('attributes', {})
-        name = attributes.get('name', 'N/A')[:28]
-        account_type = attributes.get('type', 'N/A')[:13]
-        status = attributes.get('status', 'N/A')[:13]
-        provider = attributes.get('provider', 'N/A')[:8]
+        # Show full account ID (don't truncate)
+        account_id = account.get('id', 'N/A')
         
-        print(f"{account_id:<15} {name:<30} {account_type:<15} {status:<15} {provider:<10}")
+        # Try different possible data structures for attributes
+        attributes = account.get('attributes', {})
+        if not attributes:
+            # If no attributes, try looking at the account object directly
+            name = account.get('name', 'N/A')
+            account_type = account.get('type', 'N/A')
+            status = account.get('status', 'N/A')
+            provider = account.get('provider', 'N/A')
+        else:
+            name = attributes.get('name', 'N/A')
+            account_type = attributes.get('type', 'N/A')
+            status = attributes.get('status', 'N/A')
+            provider = attributes.get('provider', 'N/A')
+        
+        # Truncate other fields for display
+        name = name[:28] if name != 'N/A' else 'N/A'
+        account_type = account_type[:13] if account_type != 'N/A' else 'N/A'
+        status = status[:13] if status != 'N/A' else 'N/A'
+        provider = provider[:8] if provider != 'N/A' else 'N/A'
+        
+        print(f"{account_id:<40} {name:<30} {account_type:<15} {status:<15} {provider:<10}")
 
 def format_dry_run_results(results: Dict[str, Any]) -> None:
     """
