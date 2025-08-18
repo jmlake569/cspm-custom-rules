@@ -57,7 +57,18 @@ class ConformityDryRunTester:
             
             if response.status_code == 200:
                 data = response.json()
-                return data.get('data', [])
+                print(f"Raw response: {json.dumps(data, indent=2)}")
+                
+                # Try different possible data structures
+                accounts = data.get('data', [])
+                if not accounts:
+                    accounts = data.get('accounts', [])
+                if not accounts:
+                    accounts = data.get('items', [])
+                if not accounts:
+                    accounts = data if isinstance(data, list) else []
+                
+                return accounts
             elif response.status_code == 401:
                 print("❌ Authentication failed. Check your API key.")
                 return None
