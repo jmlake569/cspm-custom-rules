@@ -37,11 +37,11 @@
             "operator": "equal",
             "value": "Active"
           },
-                      {
-              "fact": "accessKeyAge",
-              "operator": "greaterThan",
-              "value": 180
-            }
+          {
+            "fact": "accessKeyAge",
+            "operator": "daysSince",
+            "value": 180
+          }
         ]
       },
       "event": {
