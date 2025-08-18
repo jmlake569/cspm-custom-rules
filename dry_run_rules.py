@@ -12,6 +12,7 @@ Usage:
     python dry_run_rules.py --api-key YOUR_API_KEY --rule-file rule.json --account-id ACCOUNT_ID
     python dry_run_rules.py --api-key YOUR_API_KEY --rule-id RULE_ID --account-id ACCOUNT_ID
     python dry_run_rules.py --api-key YOUR_API_KEY --rule-file rule.json --account-id ACCOUNT_ID --resource-data
+    python dry_run_rules.py --api-key YOUR_API_KEY --list-accounts
 """
 
 import argparse
@@ -38,6 +39,39 @@ class ConformityDryRunTester:
             "Authorization": "Bearer " + self.api_key,
             "Content-Type": "application/vnd.api+json"
         }
+
+    def list_accounts(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        List all Cloud Posture accounts.
+        
+        Returns:
+            List of accounts or None if failed
+        """
+        url = f"{self.url_base}/beta/cloudPosture/accounts"
+        
+        try:
+            print(f"Fetching accounts from: {url}")
+            response = requests.get(url, headers=self.headers)
+            
+            print(f"Response Status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('data', [])
+            elif response.status_code == 401:
+                print("❌ Authentication failed. Check your API key.")
+                return None
+            elif response.status_code == 403:
+                print("❌ Access denied. Check your permissions for Cloud Posture accounts.")
+                return None
+            else:
+                print(f"❌ Failed to fetch accounts: {response.status_code}")
+                print(f"Response: {response.text}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Network error: {e}")
+            return None
 
     def dry_run_rule_from_file(self, rule_file: str, account_id: str, resource_data: bool = False) -> Optional[Dict[str, Any]]:
         """
@@ -187,6 +221,30 @@ class ConformityDryRunTester:
             print(f"❌ Network error: {e}")
             return None
 
+def format_accounts_table(accounts: List[Dict[str, Any]]) -> None:
+    """
+    Format and display accounts in a table.
+    
+    Args:
+        accounts: List of account data
+    """
+    if not accounts:
+        print("No accounts found.")
+        return
+    
+    print(f"\n{'Account ID':<15} {'Name':<30} {'Type':<15} {'Status':<15} {'Provider':<10}")
+    print("-" * 85)
+    
+    for account in accounts:
+        account_id = account.get('id', 'N/A')[:13]
+        attributes = account.get('attributes', {})
+        name = attributes.get('name', 'N/A')[:28]
+        account_type = attributes.get('type', 'N/A')[:13]
+        status = attributes.get('status', 'N/A')[:13]
+        provider = attributes.get('provider', 'N/A')[:8]
+        
+        print(f"{account_id:<15} {name:<30} {account_type:<15} {status:<15} {provider:<10}")
+
 def format_dry_run_results(results: Dict[str, Any]) -> None:
     """
     Format and display dry run results in a readable format.
@@ -239,10 +297,16 @@ def format_dry_run_results(results: Dict[str, Any]) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Perform dry runs of Trend Vision One Conformity custom rules",
+        description="Perform dry runs of Trend Vision One Conformity custom rules and manage accounts",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  List all accounts:
+    python dry_run_rules.py --api-key YOUR_KEY --list-accounts
+    # Or with environment variable:
+    export TMV1_TOKEN="your-token"
+    python dry_run_rules.py --list-accounts
+
   Dry run a rule from file:
     python dry_run_rules.py --api-key YOUR_KEY --rule-file rule.json --account-id ACCOUNT_ID
     # Or with environment variable:
@@ -260,30 +324,22 @@ Examples:
 Security Note:
   Consider using environment variables for API keys:
   export TMV1_TOKEN="your-api-key"
-  python dry_run_rules.py --rule-file rule.json --account-id ACCOUNT_ID
+  python dry_run_rules.py --list-accounts
   
   Or use VISION_ONE_API_KEY:
   export VISION_ONE_API_KEY="your-api-key"
-  python dry_run_rules.py --rule-file rule.json --account-id ACCOUNT_ID
+  python dry_run_rules.py --list-accounts
         """
     )
     
     parser.add_argument("--api-key", help="Trend Vision One API key (Bearer token). Can also be set via TMV1_TOKEN or VISION_ONE_API_KEY environment variables.")
+    parser.add_argument("--list-accounts", action="store_true", help="List all Cloud Posture accounts")
     parser.add_argument("--rule-file", help="JSON file containing rule definition")
     parser.add_argument("--rule-id", help="ID of an existing custom rule to test")
-    parser.add_argument("--account-id", required=True, help="Account ID to test the rule against")
+    parser.add_argument("--account-id", help="Account ID to test the rule against")
     parser.add_argument("--resource-data", action="store_true", help="Return resource data in the response")
     
     args = parser.parse_args()
-    
-    # Validate arguments
-    if not args.rule_file and not args.rule_id:
-        print("❌ Either --rule-file or --rule-id must be specified.")
-        sys.exit(1)
-    
-    if args.rule_file and args.rule_id:
-        print("❌ Only one of --rule-file or --rule-id should be specified.")
-        sys.exit(1)
     
     # Get API key from command line argument or environment variables
     api_key = args.api_key
@@ -298,18 +354,42 @@ Security Note:
     tester = ConformityDryRunTester(api_key)
     
     try:
-        if args.rule_file:
-            print(f"🔍 Performing dry run of rule from file: {args.rule_file}")
-            results = tester.dry_run_rule_from_file(args.rule_file, args.account_id, args.resource_data)
+        if args.list_accounts:
+            print("🔍 Fetching Cloud Posture accounts...")
+            accounts = tester.list_accounts()
+            if accounts is not None:
+                format_accounts_table(accounts)
+                print(f"\nTotal accounts: {len(accounts)}")
+            else:
+                print("❌ Failed to fetch accounts.")
+                sys.exit(1)
         else:
-            print(f"🔍 Performing dry run of existing rule: {args.rule_id}")
-            results = tester.dry_run_existing_rule(args.rule_id, args.account_id, args.resource_data)
-        
-        if results:
-            format_dry_run_results(results)
-        else:
-            print("❌ Dry run failed.")
-            sys.exit(1)
+            # Dry run mode - validate required arguments
+            if not args.rule_file and not args.rule_id:
+                print("❌ Either --rule-file or --rule-id must be specified for dry run mode.")
+                sys.exit(1)
+            
+            if args.rule_file and args.rule_id:
+                print("❌ Only one of --rule-file or --rule-id should be specified.")
+                sys.exit(1)
+            
+            if not args.account_id:
+                print("❌ --account-id is required for dry run mode.")
+                sys.exit(1)
+            
+            # Perform dry run
+            if args.rule_file:
+                print(f"🔍 Performing dry run of rule from file: {args.rule_file}")
+                results = tester.dry_run_rule_from_file(args.rule_file, args.account_id, args.resource_data)
+            else:
+                print(f"🔍 Performing dry run of existing rule: {args.rule_id}")
+                results = tester.dry_run_existing_rule(args.rule_id, args.account_id, args.resource_data)
+            
+            if results:
+                format_dry_run_results(results)
+            else:
+                print("❌ Dry run failed.")
+                sys.exit(1)
             
     except KeyboardInterrupt:
         print("\n❌ Operation cancelled by user.")
