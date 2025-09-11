@@ -39,8 +39,11 @@
           },
           {
             "fact": "accessKeyAge",
-            "operator": "greaterThan",
-            "value": "2024-07-28T00:00:00Z"
+            "operator": "dateComparison",
+            "value": {
+              "days": 180,
+              "operator": "within"
+            }
           }
         ]
       },
