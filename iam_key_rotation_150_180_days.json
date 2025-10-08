@@ -1,0 +1,53 @@
+{
+    "name": "IAM Access Key Rotation - 50-100 Days Range",
+    "slug": "iam-access-key-rotation-50-100-days-range",
+    "description": "Alert on IAM access keys that are between 50-100 days old to plan rotation",
+    "remediationNotes": "If this rule is triggered, plan to rotate the access key soon: 1. Go to AWS IAM console 2. Navigate to Users and select the affected user 3. In the Security credentials tab, create a new access key 4. Update your applications/services to use the new access key 5. Test that everything works with the new key 6. Delete the old access key once confirmed working",
+    "service": "IAM",
+    "resourceType": "iam-user",
+    "categories": [
+      "security"
+    ],
+    "severity": "MEDIUM",
+    "provider": "aws",
+    "enabled": true,
+    "attributes": [
+      {
+        "name": "userName",
+        "path": "data.UserName",
+        "required": true
+      },
+      {
+        "name": "activeKeyCreateDates",
+        "path": "data.AccessKeyMetadata[?(@.Status=='Active')].CreateDate",
+        "required": true
+      }
+    ],
+    "rules": [
+      {
+        "conditions": {
+          "all": [
+            {
+              "fact": "activeKeyCreateDates",
+              "operator": "dateComparison",
+              "value": {
+                "days": 150,
+                "operator": "olderThan"
+              }
+            },
+            {
+              "fact": "activeKeyCreateDates",
+              "operator": "dateComparison",
+              "value": {
+                "days": 180,
+                "operator": "within"
+              }
+            }
+          ]
+        },
+        "event": {
+          "type": "IAM access key is between 50-180 days old"
+        }
+      }
+    ]
+  }
