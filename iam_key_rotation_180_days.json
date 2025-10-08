@@ -32,7 +32,7 @@
             "operator": "dateComparison",
             "value": {
               "days": 180,
-              "operator": "olderThan"
+              "operator": "within"
             }
           }
         ]
